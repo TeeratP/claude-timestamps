@@ -13,6 +13,7 @@ import {
   result,
   stampOf,
   start,
+  styleOf,
 } from './fakes'
 
 const BOTH = { options: { show: 'both' } } as const
@@ -176,8 +177,10 @@ test('rows the screen cannot show are not stamped, and a thinking row has no sta
   // Neither was recorded, so each is first seen when drawn: approximate.
   await clock.settle()
 
-  expect(await stampOf(thought)).toBe('~09:12')
-  expect(await stampOf(reminder)).toBe('~09:12')
+  expect(await stampOf(thought)).toBe('09:12')
+  expect(await stampOf(reminder)).toBe('09:12')
+  expect(await styleOf(thought)).toMatchObject({ italic: true })
+  expect(await styleOf(reminder)).toMatchObject({ italic: true })
   await thought.unmount()
   await reminder.unmount()
 })

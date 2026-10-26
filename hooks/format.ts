@@ -342,22 +342,18 @@ export function labelVariants(
   config: TimestampsConfig,
   at: number,
   now: number,
-  options: { isApprox: boolean; isStatic: boolean },
+  options: { isStatic: boolean },
 ): string[] {
-  const mark = options.isApprox ? S.approx : ''
   const show = options.isStatic ? 'time' : config.show
   const age = ageText(now - at)
-  if (show === 'age') return [mark + age]
+  if (show === 'age') return [age]
 
   const clocks = clockLabels(config, at, now)
-  if (show === 'time') return clocks.map(clock => mark + clock)
+  if (show === 'time') return clocks
 
   const bare = clocks.at(-1) ?? ''
 
-  return [
-    ...clocks.map(clock => `${mark}${clock}${S.separator}${age}`),
-    mark + bare,
-  ]
+  return [...clocks.map(clock => `${clock}${S.separator}${age}`), bare]
 }
 
 /** The first of `variants` that fits `room` cells, or the shortest cut to fit. */
@@ -401,10 +397,9 @@ export function labelWidth(
   isStatic: boolean,
 ): number {
   const show = isStatic ? 'time' : config.show
-  const mark = cellWidth(S.approx)
-  if (show === 'age') return mark + ageWidth()
+  if (show === 'age') return ageWidth()
 
-  const clock = mark + clockWidth(config)
+  const clock = clockWidth(config)
 
   return show === 'time' ? clock : clock + cellWidth(S.separator) + ageWidth()
 }
@@ -538,11 +533,7 @@ export function bandColor(bands: readonly number[], hour: number): string {
   return hour >= afternoon ? 'success' : 'warning'
 }
 
-/** The `Text` props that colour a stamp for the time `at`. */
-export function textProps(
-  config: TimestampsConfig,
-  at: number,
-): TimestampsTextStyle {
+function colorProps(config: TimestampsConfig, at: number): TimestampsTextStyle {
   switch (config.color) {
     case 'dim':
       return { dimColor: true }
@@ -560,6 +551,23 @@ export function textProps(
   }
 }
 
+/**
+ * The `Text` props that colour a stamp for the time `at`. A time the mod only
+ * guessed (`isApprox`) is told apart by style and not by a cell: italic, and
+ * in the dim colour, lower in contrast.
+ */
+export function textProps(
+  config: TimestampsConfig,
+  at: number,
+  isApprox: boolean,
+): TimestampsTextStyle {
+  if (!isApprox) return colorProps(config, at)
+
+  return config.color === 'dim'
+    ? { color: 'subtle', italic: true }
+    : { ...colorProps(config, at), italic: true }
+}
+
 /** Whether the last-activity band shows: `auto` where rows cannot update, on the terminal's main screen. */
 export function isBandShown(band: TimestampsBand, isStatic: boolean): boolean {
   return band === 'on' || (band === 'auto' && isStatic)
@@ -572,9 +580,7 @@ export function bandVariants(
   now: number,
 ): string[] {
   const forms = (at: number) =>
-    at > 0
-      ? labelVariants(config, at, now, { isApprox: false, isStatic: false })
-      : []
+    at > 0 ? labelVariants(config, at, now, { isStatic: false }) : []
   const you = forms(last.you)
   const claude = forms(last.claude)
   const part = (who: string, list: readonly string[], step: number) =>

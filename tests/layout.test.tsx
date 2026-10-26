@@ -115,6 +115,10 @@ const stampText = (tree: Exclude<Tree, string>) => {
   return (text?.children ?? []).join('')
 }
 
+// The props of the stamp's Text in a drawn row: its colour and style.
+const stampStyle = (tree: Exclude<Tree, string>) =>
+  child(columnOf(tree) ?? tree, 0)?.props
+
 // How wide the stamp column of a drawn row is.
 const widthOf = (tree: Exclude<Tree, string>) => columnOf(tree)?.props?.width
 
@@ -123,9 +127,9 @@ const BOTH = { options: { show: 'both' } } as const
 // The stamp column of each row in ROWS, with the age on: the format's own width, or a
 // row's own, for a date it carries and the room allows.
 const BOTH_WIDTHS = [
-  [120, [21, 17, 21, 17, 21, 17, 17]],
-  [80, [17, 17, 17, 17, 17, 17, 17]],
-  [70, [17, 17, 17, 17, 17, 17, 17]],
+  [120, [21, 16, 21, 16, 21, 16, 16]],
+  [80, [16, 16, 16, 16, 16, 16, 16]],
+  [70, [16, 16, 16, 16, 16, 16, 16]],
 ] as const
 
 for (const surface of EVERY_SURFACE) {
@@ -163,13 +167,13 @@ for (const surface of EVERY_SURFACE) {
       // `~09:12` is the widest a stamp reads on its own: 6 cells, the body at 7.
       // A row with a date, `Oct 24 08:12`, takes 12, the body at 13.
       expect(rows.map(row => widthOf(row.tree))).toEqual([
-        12, 6, 12, 6, 12, 6, 6,
+        12, 5, 12, 5, 12, 5, 5,
       ])
       for (const { lines } of rows) {
         expect(overflow(lines, columns)).toEqual([])
       }
       expect(rows.map(row => bodyColumn(row.lines))).toEqual([
-        13, 7, 13, 7, 13, 7, 7,
+        13, 6, 13, 6, 13, 6, 6,
       ])
     }
   })
@@ -187,11 +191,21 @@ test('the stamps read their own form, and a row without a date shares the narrow
     '08:42',
     'Sep 21 09:12',
     '09:12',
-    '~09:12',
+    '09:12',
   ])
   expect(rows.map(row => bodyColumn(row.lines))).toEqual([
-    13, 7, 13, 7, 13, 7, 7,
+    13, 6, 13, 6, 13, 6, 6,
   ])
+  // Only the guessed time, the last, is told apart, by style and not by a cell.
+  expect(rows.slice(0, 6).map(row => stampStyle(row.tree))).toEqual(
+    Array(6).fill({ dimColor: true, wrap: 'truncate-end' }),
+  )
+  const [guessed] = rows.slice(6)
+  expect(guessed ? stampStyle(guessed.tree) : undefined).toEqual({
+    color: 'subtle',
+    italic: true,
+    wrap: 'truncate-end',
+  })
 })
 
 for (const surface of EVERY_SURFACE) {
@@ -204,15 +218,17 @@ for (const surface of EVERY_SURFACE) {
 
         const rows = await drawAll($, columns, surface)
 
-        for (const { lines, tree } of rows) {
+        for (const [at, { lines, tree }] of rows.entries()) {
           expect(overflow(lines, columns)).toEqual([])
           // The stamp on a line of its own, the engine's row under it, from the left edge.
           expect(lines[0]?.includes(START)).toBe(false)
           expect(lines[1]?.startsWith(START)).toBe(true)
-          expect(child(tree, 0)?.props).toMatchObject({
-            dimColor: true,
-            wrap: 'truncate-end',
-          })
+          // The guessed time, the last row, is italic and lower in contrast.
+          expect(child(tree, 0)?.props).toMatchObject(
+            at === rows.length - 1
+              ? { color: 'subtle', italic: true, wrap: 'truncate-end' }
+              : { dimColor: true, wrap: 'truncate-end' },
+          )
         }
       },
     )
@@ -247,7 +263,7 @@ test('above keeps the date and the age while they fit', BOTH, async ($, on) => {
     '08:42 · 30m ago',
     'Sep 21 09:12 · 1y ago',
     '09:12 · now',
-    '~09:12 · now',
+    '09:12 · now',
   ])
 })
 

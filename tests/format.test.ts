@@ -135,7 +135,7 @@ test('a row reads the tick that moves about as often as its age text', () => {
 test('a stamp has every form, longest first: the date drops first, then the age', () => {
   const old = AT - 2 * DAY
   const forms = (change: Partial<TimestampsConfig>, at: number, now: number) =>
-    labelVariants(config(change), at, now, { isApprox: false, isStatic: false })
+    labelVariants(config(change), at, now, { isStatic: false })
 
   expect(forms({ show: 'both' }, old, AT)).toEqual([
     'Oct 03 14:07 · 2d ago',
@@ -150,20 +150,10 @@ test('a stamp has every form, longest first: the date drops first, then the age'
   expect(forms({ show: 'age' }, old, AT)).toEqual(['2d ago'])
 })
 
-test('an approximate time leads with a tilde', () => {
-  const forms = labelVariants(config({ show: 'both' }), AT, AT + MINUTE, {
-    isApprox: true,
-    isStatic: false,
-  })
-
-  expect(forms).toEqual(['~14:07 · 1m ago', '~14:07'])
-})
-
 test('a static screen shows the clock alone, whatever is set to show', () => {
   for (const show of ['time', 'age', 'both'] as const) {
     expect(
       labelVariants(config({ show }), AT, AT + HOUR, {
-        isApprox: false,
         isStatic: true,
       }),
     ).toEqual(['14:07'])
@@ -184,22 +174,22 @@ test('a label is cut to fit, never past the room', () => {
 })
 
 test('the width of a stamp is that of the longest the format makes, less a date a row adds for itself', () => {
-  // `~` and `HH:mm`. A date due for one row widens that row's column, not every row's.
-  expect(labelWidth(config(), false)).toBe(6)
-  expect(labelWidth(config({ showDate: 'never' }), false)).toBe(6)
+  // `HH:mm`. A date due for one row widens that row's column, not every row's.
+  expect(labelWidth(config(), false)).toBe(5)
+  expect(labelWidth(config({ showDate: 'never' }), false)).toBe(5)
   for (const showDate of ['12h', '24h', '7d'] as const) {
-    expect(labelWidth(config({ showDate }), false)).toBe(6)
+    expect(labelWidth(config({ showDate }), false)).toBe(5)
   }
   // On every row, the date is part of the stamp: `Oct 05 ` too.
-  expect(labelWidth(config({ showDate: 'always' }), false)).toBe(13)
+  expect(labelWidth(config({ showDate: 'always' }), false)).toBe(12)
   // Then ` · ` and `364d ago`.
-  expect(labelWidth(config({ show: 'both' }), false)).toBe(17)
-  expect(labelWidth(config({ show: 'age' }), false)).toBe(9)
-  expect(labelWidth(config({ show: 'both' }), true)).toBe(6)
-  expect(labelWidth(config({ style: 'iso' }), false)).toBe(20)
+  expect(labelWidth(config({ show: 'both' }), false)).toBe(16)
+  expect(labelWidth(config({ show: 'age' }), false)).toBe(8)
+  expect(labelWidth(config({ show: 'both' }), true)).toBe(5)
+  expect(labelWidth(config({ style: 'iso' }), false)).toBe(19)
   expect(
     labelWidth(config({ style: 'custom', pattern: 'ddd h:mm a' }), false),
-  ).toBe(13)
+  ).toBe(12)
 })
 
 test('the stamp column is capped at 22 cells and a quarter of the columns', () => {
@@ -211,9 +201,9 @@ test('the stamp column is capped at 22 cells and a quarter of the columns', () =
   expect(stampWidth(wide, 70, false)).toBe(17)
   expect(stampWidth(wide, 30, false)).toBe(7)
   // A short format needs less than the cap, and is not stretched to it.
-  expect(stampWidth(config(), 200, false)).toBe(6)
-  expect(stampWidth(config(), 120, false)).toBe(6)
-  expect(stampWidth(config(), 40, false)).toBe(6)
+  expect(stampWidth(config(), 200, false)).toBe(5)
+  expect(stampWidth(config(), 120, false)).toBe(5)
+  expect(stampWidth(config(), 40, false)).toBe(5)
   expect(stampWidth(config(), 20, false)).toBe(5)
 })
 
@@ -226,19 +216,19 @@ test('auto puts the stamp left from 70 columns and above below that and on mobil
 
   expect(place({}, 'terminal', 120)).toEqual({
     side: 'left',
-    width: 6,
+    width: 5,
     room: 22,
   })
   expect(place({}, 'terminal', 70)).toEqual({
     side: 'left',
-    width: 6,
+    width: 5,
     room: 17,
   })
   expect(place({}, 'terminal', 69)).toEqual({ side: 'above' })
   expect(place({}, 'terminal', 30)).toEqual({ side: 'above' })
   expect(place({}, 'desktop', 120)).toEqual({
     side: 'left',
-    width: 6,
+    width: 5,
     room: 22,
   })
   expect(place({}, 'mobile', 120)).toEqual({ side: 'above' })
@@ -353,7 +343,7 @@ test('the time-of-day colour follows four bands or two', () => {
 test('the colour setting picks the text props, each time-of-day colour dimmed', () => {
   const at = new Date(2026, 9, 5, 15, 0, 0).getTime()
   const props = (change: Partial<TimestampsConfig>) =>
-    textProps(config(change), at)
+    textProps(config(change), at, false)
 
   expect(props({ color: 'dim' })).toEqual({ dimColor: true })
   expect(props({ color: 'subtle' })).toEqual({ color: 'subtle' })
@@ -365,6 +355,26 @@ test('the colour setting picks the text props, each time-of-day colour dimmed', 
     color: '#ff8800',
   })
   expect(props({ color: 'off' })).toEqual({})
+})
+
+test('an approximate time is italic, and in the dim colour lower in contrast', () => {
+  const at = new Date(2026, 9, 5, 15, 0, 0).getTime()
+  const props = (change: Partial<TimestampsConfig>) =>
+    textProps(config(change), at, true)
+
+  expect(props({ color: 'dim' })).toEqual({ color: 'subtle', italic: true })
+  expect(props({ color: 'subtle' })).toEqual({ color: 'subtle', italic: true })
+  // A colour that means something is kept, and italic says the rest.
+  expect(props({ color: 'time-of-day' })).toEqual({
+    color: 'success',
+    dimColor: true,
+    italic: true,
+  })
+  expect(props({ color: 'fixed', fixedColor: '#ff8800' })).toEqual({
+    color: '#ff8800',
+    italic: true,
+  })
+  expect(props({ color: 'off' })).toEqual({ italic: true })
 })
 
 test('the day bands are two or four rising hours', () => {

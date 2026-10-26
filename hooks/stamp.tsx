@@ -76,6 +76,8 @@ export async function stampRow(
 ): Promise<RenderElement> {
   logDrawn($, e)
   if (!isStamped(config.rows, e.component)) return inner
+  // A group drawn unfolded is its calls as ToolUse rows, each with a stamp of its own.
+  if (e.component === 'ToolGroup' && e.props.isExpanded) return inner
   // Rows of a resumed session wait for the times read from its transcript.
   if (await readLoading($)) return inner
 
@@ -96,13 +98,10 @@ export async function stampRow(
     await readTick($, tickFor(now - stamp.at))
   }
 
-  const variants = labelVariants(config, stamp.at, now, {
-    isApprox: stamp.isApprox,
-    isStatic,
-  })
+  const variants = labelVariants(config, stamp.at, now, { isStatic })
   const columns = e.viewport?.columns
   const place = placeStamp(config, e.surface, columns, isStatic)
-  const style = textProps(config, stamp.at)
+  const style = textProps(config, stamp.at, stamp.isApprox)
   const { Box, Text } = $.ui.resolve(e)
 
   if (place.side === 'above') {

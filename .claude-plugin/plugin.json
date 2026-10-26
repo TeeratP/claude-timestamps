@@ -86,7 +86,7 @@
     "color": {
       "type": "string",
       "title": "Colour (default: dim)",
-      "description": "How the stamp is coloured. dim: the theme's dim text. subtle: the theme's subtle colour. time-of-day: by the hour of the row, in the colours of Day bands, dimmed. fixed: the Fixed colour. off: plain text.",
+      "description": "How the stamp is coloured. dim: the theme's dim text. subtle: the theme's subtle colour. time-of-day: by the hour of the row, in the colours of Day bands, dimmed. fixed: the Fixed colour. off: plain text. A time the mod only guessed (written ~09:12 in 0.1.0) is always italic, and with dim it is drawn subtle, lower in contrast.",
       "options": [
         "dim",
         "subtle",

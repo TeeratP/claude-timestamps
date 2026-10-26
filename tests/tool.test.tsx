@@ -10,6 +10,7 @@ import {
   result,
   stampOf,
   start,
+  styleOf,
 } from './fakes'
 
 for (const surface of EVERY_SURFACE) {
@@ -125,6 +126,61 @@ test('a tool group is stamped with the start of its first call', async ($, on) =
   await ui.unmount()
 })
 
+// A group's calls, as it holds them.
+const callsOf = (ids: readonly string[]) =>
+  ids.map(id => ({
+    tool_use_id: id,
+    tool: 'Read',
+    input: {},
+    isRunning: false,
+    isErrored: false,
+    isInterrupted: false,
+  }))
+
+test('a tool group drawn unfolded is not stamped: its calls are rows with stamps of their own', async ($, on) => {
+  const { clock } = boot(on)
+  await start($)
+  await $.session.append(call('c-1', 'toolu_1'))
+  await clock.settle()
+
+  const unfolded = await mountRow($, 'ToolGroup', 'group-1', {
+    props: { isExpanded: true, calls: callsOf(['toolu_1']) },
+  })
+  const folded = await mountRow($, 'ToolGroup', 'group-2', {
+    props: { isExpanded: false, calls: callsOf(['toolu_1']) },
+  })
+  const row = await mountRow($, 'ToolUse', 'toolu_1')
+
+  // The engine's own drawing, whole; the folded group and the call row carry the stamp.
+  expect(await stampOf(unfolded)).toBeUndefined()
+  expect(await unfolded.drawn()).toMatchObject({ type: 'Text' })
+  expect(await stampOf(folded)).toBe('09:12')
+  expect(await stampOf(row)).toBe('09:12')
+  await unfolded.unmount()
+  await folded.unmount()
+  await row.unmount()
+})
+
+test('a tool group drawn unfolded notes no first sighting, so a later folded draw is stamped from its own', async ($, on) => {
+  const { clock } = boot(on)
+  await start($)
+  const unfolded = await mountRow($, 'ToolGroup', 'group-3', {
+    props: { isExpanded: true, calls: callsOf(['toolu_9']) },
+  })
+  await clock.settle()
+  expect(await stampOf(unfolded)).toBeUndefined()
+  await unfolded.unmount()
+
+  await clock.advance(5 * MINUTE)
+  const folded = await mountRow($, 'ToolGroup', 'group-4', {
+    props: { isExpanded: false, calls: callsOf(['toolu_9']) },
+  })
+  await clock.settle()
+
+  expect(await stampOf(folded)).toBe('09:17')
+  await folded.unmount()
+})
+
 test('a tool group whose calls carry no id is stamped from when it was first drawn', async ($, on) => {
   const { clock } = boot(on)
   await start($)
@@ -144,7 +200,8 @@ test('a tool group whose calls carry no id is stamped from when it was first dra
   expect(await stampOf(ui)).toBeUndefined()
 
   await clock.settle()
-  expect(await stampOf(ui)).toBe('~09:12')
+  expect(await stampOf(ui)).toBe('09:12')
+  expect(await styleOf(ui)).toMatchObject({ italic: true })
   await ui.unmount()
 })
 

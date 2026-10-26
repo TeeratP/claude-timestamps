@@ -9,6 +9,7 @@ import {
   reply,
   stampOf,
   start,
+  styleOf,
 } from './fakes'
 
 const BOTH = { options: { show: 'both' } } as const
@@ -26,18 +27,21 @@ for (const surface of EVERY_SURFACE) {
     expect(await stampOf(ui)).toBeUndefined()
 
     await clock.settle()
-    expect(await stampOf(ui)).toBe('~09:14')
+    expect(await stampOf(ui)).toBe('09:14')
+    // Italic and lower in contrast than the dim of an exact time, in place of a mark.
+    expect(await styleOf(ui)).toMatchObject({ color: 'subtle', italic: true })
+    expect(await styleOf(ui)).not.toHaveProperty('dimColor')
 
     // The first sighting stands: later draws do not move it to now.
     await clock.advance(10 * MINUTE)
     await ui.redraw()
-    expect(await stampOf(ui)).toBe('~09:14')
+    expect(await stampOf(ui)).toBe('09:14')
     await ui.unmount()
   })
 }
 
 test(
-  'the approximate time keeps its age, and its tilde, in a both stamp',
+  'the approximate time keeps its age, and its italics, in a both stamp',
   BOTH,
   async ($, on) => {
     const { clock } = boot(on)
@@ -47,7 +51,8 @@ test(
 
     await clock.advance(5 * MINUTE)
 
-    expect(await stampOf(ui)).toBe('~09:12 · 5m ago')
+    expect(await stampOf(ui)).toBe('09:12 · 5m ago')
+    expect(await styleOf(ui)).toMatchObject({ italic: true })
     await ui.unmount()
   },
 )
@@ -57,12 +62,16 @@ test('a row appended after it was drawn gets its true time in place of the guess
   await start($)
   const ui = await mountRow($, 'UserMessage', 'late-1')
   await clock.settle()
-  expect(await stampOf(ui)).toBe('~09:12')
+  expect(await stampOf(ui)).toBe('09:12')
+  expect(await styleOf(ui)).toMatchObject({ italic: true })
 
   await clock.advance(2 * MINUTE)
   await $.session.append(prompt('late-1'))
 
+  // The true time is upright and dim again.
   expect(await stampOf(ui)).toBe('09:14')
+  expect(await styleOf(ui)).toMatchObject({ dimColor: true })
+  expect(await styleOf(ui)).not.toHaveProperty('italic')
   await ui.unmount()
 })
 
@@ -74,7 +83,8 @@ test('many draws of one unknown row note it once', async ($, on) => {
   await ui.redraw()
   await clock.advance(MINUTE)
 
-  expect(await stampOf(ui)).toBe('~09:12')
+  expect(await stampOf(ui)).toBe('09:12')
+  expect(await styleOf(ui)).toMatchObject({ italic: true })
   await ui.unmount()
 })
 
