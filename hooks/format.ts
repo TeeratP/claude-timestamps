@@ -1,4 +1,4 @@
-import type { PluginOptions } from 'claude-code'
+import type { PluginOptions, RenderElement } from 'claude-code'
 
 import type {
   TimestampsBand,
@@ -342,22 +342,18 @@ export function labelVariants(
   config: TimestampsConfig,
   at: number,
   now: number,
-  options: { isApprox: boolean; isStatic: boolean },
+  options: { isStatic: boolean },
 ): string[] {
-  const mark = options.isApprox ? S.approx : ''
   const show = options.isStatic ? 'time' : config.show
   const age = ageText(now - at)
-  if (show === 'age') return [mark + age]
+  if (show === 'age') return [age]
 
   const clocks = clockLabels(config, at, now)
-  if (show === 'time') return clocks.map(clock => mark + clock)
+  if (show === 'time') return clocks
 
   const bare = clocks.at(-1) ?? ''
 
-  return [
-    ...clocks.map(clock => `${mark}${clock}${S.separator}${age}`),
-    mark + bare,
-  ]
+  return [...clocks.map(clock => `${clock}${S.separator}${age}`), bare]
 }
 
 /** The first of `variants` that fits `room` cells, or the shortest cut to fit. */
@@ -374,7 +370,8 @@ function clockWidth(config: TimestampsConfig): number {
     return patternWidth(PATTERN[style])
   }
 
-  const date = config.showDate === 'never' ? 0 : patternWidth(DATE) + 1
+  // A date due for some rows only widens their columns; one on every row is in all of them.
+  const date = config.showDate === 'always' ? patternWidth(DATE) + 1 : 0
 
   return date + patternWidth(PATTERN[style])
 }
@@ -390,39 +387,46 @@ const ageWidth = () =>
     ].map(cellWidth),
   )
 
-/** The most cells any stamp of this format can take, whatever the row. */
+/**
+ * The most cells a stamp of this format takes on a row of its own day, whatever
+ * its age: the widest the column has to be. A date added to some rows by
+ * `showDate` is not counted; such a row widens its own column instead.
+ */
 export function labelWidth(
   config: TimestampsConfig,
   isStatic: boolean,
 ): number {
   const show = isStatic ? 'time' : config.show
-  const mark = cellWidth(S.approx)
-  if (show === 'age') return mark + ageWidth()
+  if (show === 'age') return ageWidth()
 
-  const clock = mark + clockWidth(config)
+  const clock = clockWidth(config)
 
   return show === 'time' ? clock : clock + cellWidth(S.separator) + ageWidth()
 }
 
+/** The most a stamp column takes: 22 cells, or a quarter of the columns. */
+const columnRoom = (columns: number) =>
+  Math.min(MAX_COLUMN, Math.floor(columns / 4))
+
 /**
- * The width of the stamp column: that of the longest stamp the format can
- * make, so every row's body starts at the same cell, but never more than 22
- * cells or a quarter of the columns.
+ * The width of the stamp column: that of the longest stamp the format makes on
+ * a row of its own day, so those rows' bodies start at the same cell, but
+ * never more than 22 cells or a quarter of the columns. It is a limit, not a
+ * size: a short format gets a short column.
  */
 export function stampWidth(
   config: TimestampsConfig,
   columns: number,
   isStatic: boolean,
 ): number {
-  const cap = Math.min(MAX_COLUMN, Math.floor(columns / 4))
-
-  return Math.min(labelWidth(config, isStatic), cap)
+  return Math.min(labelWidth(config, isStatic), columnRoom(columns))
 }
 
 /**
  * Where the stamp goes. `auto` is the left column from 70 columns and a line
  * above below that and on mobile; `left` and `right` fall back to a line above
- * when the column would be too narrow to read, or the width is not known.
+ * when the column would be too narrow to read, or the width is not known. A
+ * column is `width` cells, and `room` at most for a row that carries a date.
  */
 export function placeStamp(
   config: TimestampsConfig,
@@ -442,7 +446,9 @@ export function placeStamp(
 
   const width = stampWidth(config, columns, isStatic)
 
-  return width >= MIN_COLUMN ? { side, width } : { side: 'above' }
+  return width >= MIN_COLUMN
+    ? { side, width, room: columnRoom(columns) }
+    : { side: 'above' }
 }
 
 /** Whether the rows of a component carry a stamp under the `rows` setting. */
@@ -466,6 +472,52 @@ export function isStamped(
   }
 }
 
+// The blank rows the engine's own drawing of a component starts with, measured
+// on the terminal's main screen in Claude Code 2.1.310: a message and a tool call
+// have one above their text, a result and command output none. A tool group was
+// seen unfolded into its calls, so its first row is the first call's. Not
+// measured on any other surface, in fullscreen, or for a folded group's count line.
+const BLANK_ROWS: Readonly<Record<TimestampsComponent, number>> = {
+  UserMessage: 1,
+  AssistantMessage: 1,
+  ToolUse: 1,
+  ToolGroup: 1,
+  ToolResult: 0,
+  CommandOutput: 0,
+}
+
+// The rows a Box leaves above its content on one count of space: the top side,
+// else the vertical shorthand, else the shorthand for every side (Ink's order).
+function spaceAbove(
+  props: Record<string, string | number | boolean>,
+  space: 'margin' | 'padding',
+): number {
+  const rows = props[`${space}Top`] ?? props[`${space}Y`] ?? props[space]
+
+  return typeof rows === 'number' && rows > 0 ? rows : 0
+}
+
+/**
+ * The rows above the first line of text in the drawing `next(e)` returned, which
+ * the stamp skips to sit on that line: the top margin and padding of a Box root.
+ * The engine's own drawing comes back as an opaque node (`{ type: 'engine', ref }`)
+ * that hides them, and then they are the ones measured for the component.
+ */
+export function topRows(
+  root: RenderElement,
+  component: TimestampsComponent,
+  surface: string,
+): number {
+  if (root.type === 'engine') {
+    return surface === 'terminal' ? BLANK_ROWS[component] : 0
+  }
+  if (root.type !== 'Box') return 0
+
+  const props = root.props ?? {}
+
+  return spaceAbove(props, 'margin') + spaceAbove(props, 'padding')
+}
+
 /** The theme key for the hour: four bands (morning, afternoon, evening, night) or two (day, night). */
 export function bandColor(bands: readonly number[], hour: number): string {
   if (bands.length === 2) {
@@ -481,11 +533,7 @@ export function bandColor(bands: readonly number[], hour: number): string {
   return hour >= afternoon ? 'success' : 'warning'
 }
 
-/** The `Text` props that colour a stamp for the time `at`. */
-export function textProps(
-  config: TimestampsConfig,
-  at: number,
-): TimestampsTextStyle {
+function colorProps(config: TimestampsConfig, at: number): TimestampsTextStyle {
   switch (config.color) {
     case 'dim':
       return { dimColor: true }
@@ -503,6 +551,23 @@ export function textProps(
   }
 }
 
+/**
+ * The `Text` props that colour a stamp for the time `at`. A time the mod only
+ * guessed (`isApprox`) is told apart by style and not by a cell: italic, and
+ * in the dim colour, lower in contrast.
+ */
+export function textProps(
+  config: TimestampsConfig,
+  at: number,
+  isApprox: boolean,
+): TimestampsTextStyle {
+  if (!isApprox) return colorProps(config, at)
+
+  return config.color === 'dim'
+    ? { color: 'subtle', italic: true }
+    : { ...colorProps(config, at), italic: true }
+}
+
 /** Whether the last-activity band shows: `auto` where rows cannot update, on the terminal's main screen. */
 export function isBandShown(band: TimestampsBand, isStatic: boolean): boolean {
   return band === 'on' || (band === 'auto' && isStatic)
@@ -515,9 +580,7 @@ export function bandVariants(
   now: number,
 ): string[] {
   const forms = (at: number) =>
-    at > 0
-      ? labelVariants(config, at, now, { isApprox: false, isStatic: false })
-      : []
+    at > 0 ? labelVariants(config, at, now, { isStatic: false }) : []
   const you = forms(last.you)
   const claude = forms(last.claude)
   const part = (who: string, list: readonly string[], step: number) =>

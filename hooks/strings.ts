@@ -20,8 +20,6 @@ export const S = {
 
   // Between the clock and the age: `09:12 · 5m ago`.
   separator: ' · ',
-  // Leads a time the mod did not record when it happened.
-  approx: '~',
   age: {
     now: 'now',
     minutes: (n: number) => `${n}m ago`,

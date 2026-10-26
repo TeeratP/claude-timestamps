@@ -15,6 +15,7 @@ import {
   prompt,
   stampOf,
   start,
+  styleOf,
   transcript,
 } from './fakes'
 
@@ -113,7 +114,8 @@ test('a transcript over 4 MiB is not read, and its rows are left to the first-se
   await clock.settle()
 
   expect(reads).toEqual([])
-  expect(await stampOf(ui)).toBe('~09:12')
+  expect(await stampOf(ui)).toBe('09:12')
+  expect(await styleOf(ui)).toMatchObject({ italic: true })
   expect(logs.some(line => line.includes('over the 4 MiB'))).toBe(true)
   await ui.unmount()
 })
@@ -127,7 +129,8 @@ test('a transcript that cannot be read does not hold the rows back', async ($, o
   const ui = await mountRow($, 'UserMessage', 'u-1')
   await clock.settle()
 
-  expect(await stampOf(ui)).toBe('~09:12')
+  expect(await stampOf(ui)).toBe('09:12')
+  expect(await styleOf(ui)).toMatchObject({ italic: true })
   expect(logs.some(line => line.includes('could not read'))).toBe(true)
   await ui.unmount()
 })
