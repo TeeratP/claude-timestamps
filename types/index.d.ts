@@ -40,11 +40,15 @@ export type TimestampsConfig = {
   dayBands: number[]
   band: TimestampsBand
 }
-/** Where a stamp goes: a column of `width` cells before the body or after it, or a line above. */
+/** Where a stamp goes: a column of `width` cells before the body or after it (up to `room` for a row with a date), or a line above. */
 export type TimestampsPlace =
-  { side: 'above' } | { side: 'left' | 'right'; width: number }
+  { side: 'above' } | { side: 'left' | 'right'; width: number; room: number }
 /** The `Text` props that colour a stamp. */
-export type TimestampsTextStyle = { color?: string; dimColor?: boolean }
+export type TimestampsTextStyle = {
+  color?: string
+  dimColor?: boolean
+  italic?: boolean
+}
 /** One row's time. `at` is 0 while unknown; `isApprox`: first seen drawn, not recorded when it happened. */
 export type TimestampsStamp = { at: number; isApprox: boolean }
 /** When the person last prompted and Claude last replied (0: not yet). */

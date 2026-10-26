@@ -14,7 +14,7 @@ Show when each row happened on every transcript row: prompts, replies, tool call
   - in `tool.call`, at start and end.
   
   On resume, fork or compact (`classic.SessionStart`, source in `transcript_path`), the mod parses the transcript JSONL for `uuid → timestamp` (files of 4 MiB or less). The time table is persisted in `$.store` under `times:<sessionId>`.
-- **Unknown rows.** The render hook schedules `$.clock.after(0, …)` to record the first time it saw the row, and shows `~HH:MM`. Rows first seen while a resume is loading show no stamp.
+- **Unknown rows.** The render hook schedules `$.clock.after(0, …)` to record the first time it saw the row, and shows it in italic (and `subtle` instead of `dim`), so the mark costs no cell. Rows first seen while a resume is loading show no stamp.
 - **Refresh.** Rows redraw when a `$.state` member they read changes. Three tick atoms (`tickMin`, `tickHour`, `tickDay`) are written by one 15 s timer, each only when its bucket changes. A row reads the tick matching its age, and reads none while it is off screen.
 - **Terminal main screen** (`viewport.isFullscreen === false`). Printed scrollback is static (inferred), so:
   - rows show the clock only;
@@ -24,8 +24,10 @@ Show when each row happened on every transcript row: prompts, replies, tool call
 ## Layout
 - **Placement.** With 70 or more columns, the stamp goes in a left column, before the body:
   - a Row Box: the stamp first, at a fixed width, `flexShrink 0` and `marginRight 1`; the body after it, `flexGrow 1` and `flexShrink 1`, so wrapped body lines stay aligned after the stamp column (a hanging indent);
-  - the stamp width is fixed from the format, so every row's body starts at the same column; capped at min(22, 25% of the columns);
-  - the date drops first when space runs short, then the age.
+  - the stamp width is that of the widest stamp the format makes on a row of its own day (`HH:mm`: 5 cells, the body at column 6, one space after the stamp), so those rows' bodies start at the same column; a row that carries a date (`showDate` other than `always`) widens its own column. min(22, 25% of the columns) only limits it;
+  - the stamp Box takes the top margin and padding of the drawing `next(e)` returns, so it sits on the first line of text. The engine's own drawing comes back as an opaque `{ type: 'engine', ref }` (D:10174-10184) that hides them, so a per-component table of the blank rows measured live stands in for it (terminal only);
+  - the date drops first when space runs short, then the age;
+  - a ToolGroup drawn unfolded (`isExpanded`) is not stamped: its calls are ToolUse rows with stamps of their own.
 
   Below 70 columns, and on mobile, the stamp is one dim line above the row. `right` puts the same column after the body (`marginLeft 1`).
 - **Overflow.** Nothing may overflow; use `truncate-end`. Never use absolute positioning, and never rewrite `props.text`.

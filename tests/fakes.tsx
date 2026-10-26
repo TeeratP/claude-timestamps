@@ -17,6 +17,12 @@ export const EVERY_SURFACE = ['terminal', 'desktop'] as const
 
 export type Files = Record<string, string>
 
+/**
+ * The shape of the engine's own drawing of a row: a Text (the default), a column
+ * Box with a top margin or padding, or the engine's opaque node, which hides both.
+ */
+export type Drawing = { marginTop?: number; paddingTop?: number } | 'engine'
+
 /** The engine beneath the plugin: a clock, a store, files, and the calls a session makes. */
 export function boot(
   on: On,
@@ -24,6 +30,7 @@ export function boot(
     files?: Files
     store?: Record<string, unknown>
     row?: string
+    drawing?: Drawing
     // How long a tool call takes.
     toolMs?: number
   } = {},
@@ -95,9 +102,19 @@ export function boot(
   // The engine's own drawing of a row, which the plugin wraps.
   on('ui.render', ($, e) => {
     draws.count += 1
-    const { Text } = $.ui.resolve(e)
+    const { Box, Text } = $.ui.resolve(e)
+    const { drawing } = options
+    if (drawing === 'engine') return { type: 'engine', ref: 1 }
 
-    return <Text>{options.row ?? ENGINE_ROW}</Text>
+    const text = <Text>{options.row ?? ENGINE_ROW}</Text>
+
+    return drawing === undefined ? (
+      text
+    ) : (
+      <Box flexDirection="column" {...drawing}>
+        {text}
+      </Box>
+    )
   })
 
   /** What the store holds under a key, parsed. */

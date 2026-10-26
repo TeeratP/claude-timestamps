@@ -33,7 +33,7 @@ export async function renderBand(
   return (
     <Box>
       <Text
-        {...textProps(config, Math.max(last.you, last.claude))}
+        {...textProps(config, Math.max(last.you, last.claude), false)}
         wrap="truncate-end"
       >
         {label}

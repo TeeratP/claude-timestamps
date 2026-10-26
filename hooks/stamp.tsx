@@ -3,12 +3,14 @@ import type { EngineInterface, RenderElement, RenderInput } from 'claude-code'
 import type { TimestampsComponent, TimestampsConfig } from '../types'
 import { readLoading, readStamp, readTick } from './atoms'
 import {
+  cellWidth,
   fitLabel,
   isStamped,
   labelVariants,
   placeStamp,
   previewOf,
   textProps,
+  topRows,
 } from './format'
 import { S } from './strings'
 import { tickFor } from './ticks'
@@ -74,6 +76,8 @@ export async function stampRow(
 ): Promise<RenderElement> {
   logDrawn($, e)
   if (!isStamped(config.rows, e.component)) return inner
+  // A group drawn unfolded is its calls as ToolUse rows, each with a stamp of its own.
+  if (e.component === 'ToolGroup' && e.props.isExpanded) return inner
   // Rows of a resumed session wait for the times read from its transcript.
   if (await readLoading($)) return inner
 
@@ -94,13 +98,10 @@ export async function stampRow(
     await readTick($, tickFor(now - stamp.at))
   }
 
-  const variants = labelVariants(config, stamp.at, now, {
-    isApprox: stamp.isApprox,
-    isStatic,
-  })
+  const variants = labelVariants(config, stamp.at, now, { isStatic })
   const columns = e.viewport?.columns
   const place = placeStamp(config, e.surface, columns, isStatic)
-  const style = textProps(config, stamp.at)
+  const style = textProps(config, stamp.at, stamp.isApprox)
   const { Box, Text } = $.ui.resolve(e)
 
   if (place.side === 'above') {
@@ -116,16 +117,21 @@ export async function stampRow(
     )
   }
 
-  const label = fitLabel(variants, place.width)
+  // The column holds the format's widest stamp; a row with a date takes more, up to the room.
+  const label = fitLabel(variants, place.room)
+  const width = Math.max(place.width, cellWidth(label))
+  // The engine's drawing may start with blank rows; the stamp skips them to sit on the text.
+  const top = topRows(inner, e.component, e.surface)
+  const skip = top > 0 ? { marginTop: top } : {}
   const column =
     place.side === 'left' ? (
-      <Box width={place.width} flexShrink={0} marginRight={1}>
+      <Box width={width} flexShrink={0} marginRight={1} {...skip}>
         <Text {...style} wrap="truncate-end">
           {label}
         </Text>
       </Box>
     ) : (
-      <Box width={place.width} flexShrink={0} marginLeft={1}>
+      <Box width={width} flexShrink={0} marginLeft={1} {...skip}>
         <Text {...style} wrap="truncate-end">
           {label}
         </Text>
