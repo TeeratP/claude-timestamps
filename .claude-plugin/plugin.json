@@ -1,6 +1,6 @@
 {
   "name": "timestamps",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A clock time and a relative age on every transcript row: prompts, replies, tool calls and results.",
   "author": {
     "name": "TeeratP"
@@ -33,7 +33,7 @@
     "showDate": {
       "type": "string",
       "title": "Show date (default: other-day)",
-      "description": "When the time, time+seconds, 12h and 12h+seconds styles add the date, e.g. Oct 26 09:12. other-day: on a row from another day. 12h: on a row older than 12 hours. 24h: older than 24 hours. 7d: older than 7 days. always: on every row. never: no date. The date is the first thing to drop when the column is narrow.",
+      "description": "When the time, time+seconds, 12h and 12h+seconds styles add the date, e.g. Oct 26 09:12. other-day: on a row from another day. 12h: on a row older than 12 hours. 24h: older than 24 hours. 7d: older than 7 days. always: on every row. never: no date. A row with a date takes a wider column than the others, up to 22 cells or a quarter of the columns; the date is the first thing to drop when that is not enough.",
       "options": [
         "other-day",
         "12h",

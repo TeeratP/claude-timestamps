@@ -24,7 +24,8 @@ Show when each row happened on every transcript row: prompts, replies, tool call
 ## Layout
 - **Placement.** With 70 or more columns, the stamp goes in a left column, before the body:
   - a Row Box: the stamp first, at a fixed width, `flexShrink 0` and `marginRight 1`; the body after it, `flexGrow 1` and `flexShrink 1`, so wrapped body lines stay aligned after the stamp column (a hanging indent);
-  - the stamp width is fixed from the format, so every row's body starts at the same column; capped at min(22, 25% of the columns);
+  - the stamp width is that of the widest stamp the format makes on a row of its own day, so those rows' bodies start at the same column; a row that carries a date (`showDate` other than `always`) widens its own column. min(22, 25% of the columns) only limits it;
+  - the stamp Box takes the top margin and padding of the drawing `next(e)` returns, so it sits on the first line of text. The engine's own drawing comes back as an opaque `{ type: 'engine', ref }` (D:10174-10184) that hides them, so a per-component table of the blank rows measured live stands in for it (terminal only);
   - the date drops first when space runs short, then the age.
 
   Below 70 columns, and on mobile, the stamp is one dim line above the row. `right` puts the same column after the body (`marginLeft 1`).

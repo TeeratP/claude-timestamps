@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing'
+import type { RenderElement } from 'claude-code'
 
 import type { TimestampsConfig } from '../types'
 import {
@@ -21,6 +22,7 @@ import {
   readConfig,
   stampWidth,
   textProps,
+  topRows,
   truncate,
 } from '../hooks/format'
 import { tickFor } from '../hooks/ticks'
@@ -181,14 +183,19 @@ test('a label is cut to fit, never past the room', () => {
   expect(cellWidth(fitLabel(forms, 3))).toBeLessThanOrEqual(3)
 })
 
-test('the width of a stamp is that of the longest the format can make', () => {
-  // `~`, then `Oct 05 ` and `HH:mm`.
-  expect(labelWidth(config(), false)).toBe(13)
+test('the width of a stamp is that of the longest the format makes, less a date a row adds for itself', () => {
+  // `~` and `HH:mm`. A date due for one row widens that row's column, not every row's.
+  expect(labelWidth(config(), false)).toBe(6)
   expect(labelWidth(config({ showDate: 'never' }), false)).toBe(6)
+  for (const showDate of ['12h', '24h', '7d'] as const) {
+    expect(labelWidth(config({ showDate }), false)).toBe(6)
+  }
+  // On every row, the date is part of the stamp: `Oct 05 ` too.
+  expect(labelWidth(config({ showDate: 'always' }), false)).toBe(13)
   // Then ` · ` and `364d ago`.
-  expect(labelWidth(config({ show: 'both' }), false)).toBe(24)
+  expect(labelWidth(config({ show: 'both' }), false)).toBe(17)
   expect(labelWidth(config({ show: 'age' }), false)).toBe(9)
-  expect(labelWidth(config({ show: 'both' }), true)).toBe(13)
+  expect(labelWidth(config({ show: 'both' }), true)).toBe(6)
   expect(labelWidth(config({ style: 'iso' }), false)).toBe(20)
   expect(
     labelWidth(config({ style: 'custom', pattern: 'ddd h:mm a' }), false),
@@ -196,16 +203,18 @@ test('the width of a stamp is that of the longest the format can make', () => {
 })
 
 test('the stamp column is capped at 22 cells and a quarter of the columns', () => {
-  const wide = config({ show: 'both' })
+  const wide = config({ show: 'both', showDate: 'always' })
 
   expect(stampWidth(wide, 200, false)).toBe(22)
   expect(stampWidth(wide, 120, false)).toBe(22)
   expect(stampWidth(wide, 80, false)).toBe(20)
   expect(stampWidth(wide, 70, false)).toBe(17)
   expect(stampWidth(wide, 30, false)).toBe(7)
-  // A short format needs less than the cap.
-  expect(stampWidth(config(), 120, false)).toBe(13)
-  expect(stampWidth(config(), 40, false)).toBe(10)
+  // A short format needs less than the cap, and is not stretched to it.
+  expect(stampWidth(config(), 200, false)).toBe(6)
+  expect(stampWidth(config(), 120, false)).toBe(6)
+  expect(stampWidth(config(), 40, false)).toBe(6)
+  expect(stampWidth(config(), 20, false)).toBe(5)
 })
 
 test('auto puts the stamp left from 70 columns and above below that and on mobile', () => {
@@ -215,11 +224,23 @@ test('auto puts the stamp left from 70 columns and above below that and on mobil
     columns: number | undefined,
   ) => placeStamp(config(change), surface, columns, false)
 
-  expect(place({}, 'terminal', 120)).toEqual({ side: 'left', width: 13 })
-  expect(place({}, 'terminal', 70)).toEqual({ side: 'left', width: 13 })
+  expect(place({}, 'terminal', 120)).toEqual({
+    side: 'left',
+    width: 6,
+    room: 22,
+  })
+  expect(place({}, 'terminal', 70)).toEqual({
+    side: 'left',
+    width: 6,
+    room: 17,
+  })
   expect(place({}, 'terminal', 69)).toEqual({ side: 'above' })
   expect(place({}, 'terminal', 30)).toEqual({ side: 'above' })
-  expect(place({}, 'desktop', 120)).toEqual({ side: 'left', width: 13 })
+  expect(place({}, 'desktop', 120)).toEqual({
+    side: 'left',
+    width: 6,
+    room: 22,
+  })
   expect(place({}, 'mobile', 120)).toEqual({ side: 'above' })
   expect(place({}, 'terminal', undefined)).toEqual({ side: 'above' })
 })
@@ -228,12 +249,57 @@ test('left, right and above are taken as set, unless a column would be too narro
   const place = (placement: TimestampsConfig['placement'], columns: number) =>
     placeStamp(config({ placement, show: 'both' }), 'terminal', columns, false)
 
-  expect(place('left', 50)).toEqual({ side: 'left', width: 12 })
-  expect(place('right', 50)).toEqual({ side: 'right', width: 12 })
+  expect(place('left', 50)).toEqual({ side: 'left', width: 12, room: 12 })
+  expect(place('right', 50)).toEqual({ side: 'right', width: 12, room: 12 })
   expect(place('above', 200)).toEqual({ side: 'above' })
-  expect(place('left', 20)).toEqual({ side: 'left', width: 5 })
+  expect(place('left', 20)).toEqual({ side: 'left', width: 5, room: 5 })
   expect(place('left', 19)).toEqual({ side: 'above' })
   expect(place('right', 8)).toEqual({ side: 'above' })
+})
+
+const box = (props: Record<string, string | number | boolean>) =>
+  ({ type: 'Box', props }) satisfies RenderElement
+
+test('the rows above a drawing are its top margin and top padding', () => {
+  const top = (root: RenderElement) => topRows(root, 'ToolResult', 'terminal')
+
+  expect(top(box({ marginTop: 1 }))).toBe(1)
+  expect(top(box({ paddingTop: 1 }))).toBe(1)
+  expect(top(box({ marginTop: 1, paddingTop: 2 }))).toBe(3)
+  expect(top(box({ marginTop: 0 }))).toBe(0)
+  expect(top(box({}))).toBe(0)
+  expect(top({ type: 'Box' })).toBe(0)
+  // The shorthands count unless the side is set, as in Ink.
+  expect(top(box({ marginY: 1 }))).toBe(1)
+  expect(top(box({ margin: 2 }))).toBe(2)
+  expect(top(box({ padding: 1, paddingY: 3 }))).toBe(3)
+  expect(top(box({ margin: 2, marginTop: 1 }))).toBe(1)
+  // Only whole rows count: a step name has no size here, and the sides below do not count.
+  expect(top(box({ marginTop: 'sm' }))).toBe(0)
+  expect(top(box({ marginBottom: 1, paddingBottom: 1 }))).toBe(0)
+  expect(top({ type: 'Text', children: ['x'] })).toBe(0)
+})
+
+test('behind the engine node, which hides its margin, the rows are those measured for the component', () => {
+  const engine = { type: 'engine', ref: 1 } satisfies RenderElement
+  const top = (
+    component: Parameters<typeof topRows>[1],
+    surface = 'terminal',
+  ) => topRows(engine, component, surface)
+
+  // Messages and tool calls start with a blank row; results and command output do not.
+  expect(top('UserMessage')).toBe(1)
+  expect(top('AssistantMessage')).toBe(1)
+  expect(top('ToolUse')).toBe(1)
+  expect(top('ToolGroup')).toBe(1)
+  expect(top('ToolResult')).toBe(0)
+  expect(top('CommandOutput')).toBe(0)
+  // Measured on the terminal only.
+  expect(top('UserMessage', 'desktop')).toBe(0)
+  expect(top('UserMessage', 'mobile')).toBe(0)
+  // A tree that shows its margin is read, whatever the component.
+  expect(topRows(box({ marginTop: 0 }), 'UserMessage', 'terminal')).toBe(0)
+  expect(topRows(box({ marginTop: 1 }), 'ToolResult', 'desktop')).toBe(1)
 })
 
 test('the rows setting picks the components that are stamped', () => {

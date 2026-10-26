@@ -9,7 +9,7 @@ A Claude Code mod that puts a clock time on every transcript row: your prompts, 
 09:14  ● Done. The redirect now keeps the return path.
 ```
 
-The stamp sits in a fixed-width column to the left of the row, dim, so every row's text starts at the same column and wrapped lines stay aligned under it. Below 70 columns, and on mobile, it is one dim line above the row. Turn on an age (`Show: both`) and a row reads `09:12 · 5m ago`, ticking as time passes.
+The stamp sits in a column to the left of the row, dim, on the same line as the row's first line of text, so the text starts at the same column and wrapped lines stay aligned under it. Below 70 columns, and on mobile, it is one dim line above the row. Turn on an age (`Show: both`) and a row reads `09:12 · 5m ago`, ticking as time passes.
 
 ## Install
 
@@ -47,7 +47,7 @@ A value outside its choices counts as unset, so the default applies. A Fixed col
 
 ### How wide the column is
 
-The stamp column is as wide as the longest stamp the format can make, so every row lines up, but never more than 22 cells or a quarter of the columns. When that is less than the stamp needs, the date drops first, then the age, then the clock is cut with `…`. Under 5 cells a column says nothing, so the stamp goes above the row instead. Nothing is drawn past the edge at 30, 50, 80 or 120 columns.
+The stamp column is as wide as the longest stamp the format makes on a row of its own day, plus one cell, so those rows line up: `~09:12` is 6 cells, the text starts at column 7. Twenty-two cells or a quarter of the columns is only a limit, never the size. A date added by Show date (`Oct 24 08:12`) widens the column of the rows that carry it, up to that limit; with `always` the date is on every row and in every column. When the limit is less than the stamp needs, the date drops first, then the age, then the clock is cut with `…`. Under 5 cells a column says nothing, so the stamp goes above the row instead. Nothing is drawn past the edge at 30, 50, 80 or 120 columns.
 
 ## How it works
 

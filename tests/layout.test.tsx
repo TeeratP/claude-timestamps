@@ -14,7 +14,7 @@ import {
   start,
   transcript,
 } from './fakes'
-import type { RowComponent } from './fakes'
+import type { Drawing, RowComponent } from './fakes'
 import { layout, overflow } from './render'
 import type { Tree } from './render'
 
@@ -80,8 +80,12 @@ async function drawAll(
 }
 
 // A resumed session, with the unknown row drawn once so that its guess is made.
-async function ready($: Engine, on: On) {
-  const { clock } = boot(on, { files: { [TRANSCRIPT]: HISTORY }, row: BODY })
+async function ready($: Engine, on: On, drawing?: Drawing) {
+  const { clock } = boot(on, {
+    files: { [TRANSCRIPT]: HISTORY },
+    row: BODY,
+    drawing,
+  })
   await start($)
   await begin($, 'resume')
   await clock.settle()
@@ -91,7 +95,8 @@ async function ready($: Engine, on: On) {
 }
 
 // The column the body starts at in a drawn row: where the engine's own text begins.
-const bodyColumn = (lines: readonly string[]) => lines[0]?.indexOf(START) ?? -1
+const bodyColumn = (lines: readonly string[]) =>
+  lines.find(line => line.includes(START))?.indexOf(START) ?? -1
 
 const child = (tree: Exclude<Tree, string>, at: number) => {
   const one = tree.children?.[at]
@@ -99,31 +104,43 @@ const child = (tree: Exclude<Tree, string>, at: number) => {
   return typeof one === 'string' ? undefined : one
 }
 
-// The words of the stamp in a drawn row, wherever it stands.
+// The stamp column of a drawn row, wherever it stands: the child with a width.
+const columnOf = (tree: Exclude<Tree, string>) =>
+  [child(tree, 0), child(tree, 1)].find(one => one?.props?.width !== undefined)
+
+// The words of the stamp in a drawn row.
 const stampText = (tree: Exclude<Tree, string>) => {
-  const column = child(tree, 0)
-  const text = column?.props?.width === undefined ? column : child(column, 0)
+  const text = child(columnOf(tree) ?? tree, 0)
 
   return (text?.children ?? []).join('')
 }
 
+// How wide the stamp column of a drawn row is.
+const widthOf = (tree: Exclude<Tree, string>) => columnOf(tree)?.props?.width
+
 const BOTH = { options: { show: 'both' } } as const
 
+// The stamp column of each row in ROWS, with the age on: the format's own width, or a
+// row's own, for a date it carries and the room allows.
+const BOTH_WIDTHS = [
+  [120, [21, 17, 21, 17, 21, 17, 17]],
+  [80, [17, 17, 17, 17, 17, 17, 17]],
+  [70, [17, 17, 17, 17, 17, 17, 17]],
+] as const
+
 for (const surface of EVERY_SURFACE) {
-  for (const [columns, width] of [
-    [120, 22],
-    [80, 20],
-    [70, 17],
-  ] as const) {
+  for (const [columns, widths] of BOTH_WIDTHS) {
     test(
-      `left at ${columns} columns on the ${surface}: every body starts at one column and nothing overflows`,
+      `left at ${columns} columns on the ${surface}: each body starts a cell after its stamp column and nothing overflows`,
       BOTH,
       async ($, on) => {
         await ready($, on)
 
         const rows = await drawAll($, columns, surface)
 
-        for (const { lines } of rows) {
+        expect(rows.map(row => widthOf(row.tree))).toEqual(widths)
+        for (const { lines, tree } of rows) {
+          const width = Number(widthOf(tree))
           expect(overflow(lines, columns)).toEqual([])
           // The stamp column, a cell between, then the body.
           expect(bodyColumn(lines)).toBe(width + 1)
@@ -134,28 +151,31 @@ for (const surface of EVERY_SURFACE) {
             expect(line.slice(width + 1).length).toBeGreaterThan(0)
           }
         }
-        // One width for every row, whatever its stamp reads.
-        const widths = rows.map(row => child(row.tree, 0)?.props?.width)
-        expect(widths).toEqual(rows.map(() => width))
       },
     )
   }
 
-  test(`left with the default format takes a narrower column, at 120 and 80 columns on the ${surface}`, async ($, on) => {
+  test(`left with the default format takes a column as wide as its stamp, at 120 and 80 columns on the ${surface}`, async ($, on) => {
     await ready($, on)
 
     for (const columns of [120, 80]) {
       const rows = await drawAll($, columns, surface)
+      // `~09:12` is the widest a stamp reads on its own: 6 cells, the body at 7.
+      // A row with a date, `Oct 24 08:12`, takes 12, the body at 13.
+      expect(rows.map(row => widthOf(row.tree))).toEqual([
+        12, 6, 12, 6, 12, 6, 6,
+      ])
       for (const { lines } of rows) {
         expect(overflow(lines, columns)).toEqual([])
-        // `~`, `Oct 24 ` and `08:12`: the longest stamp the format can make.
-        expect(bodyColumn(lines)).toBe(13 + 1)
       }
+      expect(rows.map(row => bodyColumn(row.lines))).toEqual([
+        13, 7, 13, 7, 13, 7, 7,
+      ])
     }
   })
 }
 
-test('the stamps read their own form but take the same column', async ($, on) => {
+test('the stamps read their own form, and a row without a date shares the narrow column', async ($, on) => {
   await ready($, on)
 
   const rows = await drawAll($, 120, 'terminal')
@@ -169,7 +189,9 @@ test('the stamps read their own form but take the same column', async ($, on) =>
     '09:12',
     '~09:12',
   ])
-  expect(new Set(rows.map(row => bodyColumn(row.lines)))).toEqual(new Set([14]))
+  expect(rows.map(row => bodyColumn(row.lines))).toEqual([
+    13, 7, 13, 7, 13, 7, 7,
+  ])
 })
 
 for (const surface of EVERY_SURFACE) {
@@ -252,20 +274,22 @@ test(
   },
 )
 
-for (const columns of [120, 80, 50]) {
+for (const [columns, widths] of [
+  ...BOTH_WIDTHS.slice(0, 2),
+  [50, [12, 12, 12, 12, 12, 12, 12]],
+] as const) {
   test(
-    `right at ${columns} columns: the body first, the stamp column after it, one column for every row`,
+    `right at ${columns} columns: the body first, the stamp column after it, as wide as its stamp`,
     { options: { show: 'both', placement: 'right' } },
     async ($, on) => {
       await ready($, on)
 
       const rows = await drawAll($, columns, 'terminal')
 
-      const width = Math.min(22, Math.floor(columns / 4))
-      for (const { lines, tree } of rows) {
+      expect(rows.map(row => child(row.tree, 1)?.props?.width)).toEqual(widths)
+      for (const { lines } of rows) {
         expect(overflow(lines, columns)).toEqual([])
         expect(bodyColumn(lines)).toBe(0)
-        expect(child(tree, 1)?.props?.width).toBe(width)
       }
     },
   )
@@ -307,6 +331,120 @@ for (const placement of ['auto', 'left', 'right', 'above'] as const) {
     },
   )
 }
+
+// The engine's own drawing of a row as `next(e)` can hand it back, and the blank
+// rows it starts with: the stamp has to skip as many to sit on the first line of text.
+const DRAWINGS = [
+  ['a top margin of 1', { marginTop: 1 }, 1],
+  ['a top padding of 1', { paddingTop: 1 }, 1],
+  ['a margin and a padding of 1 each', { marginTop: 1, paddingTop: 1 }, 2],
+  ['a top margin of 0', { marginTop: 0 }, 0],
+  ['no top margin or padding', {}, 0],
+] as const
+
+for (const [name, drawing, top] of DRAWINGS) {
+  for (const surface of EVERY_SURFACE) {
+    test(
+      `left: the stamp is on the first row of text when the engine draws ${name}, on the ${surface}`,
+      { options: { placement: 'left' } },
+      async ($, on) => {
+        await ready($, on, drawing)
+
+        for (const columns of [30, 80, 120]) {
+          for (const { lines, tree } of await drawAll($, columns, surface)) {
+            const stamp = stampText(tree)
+            expect(overflow(lines, columns)).toEqual([])
+            // The blank rows, then the first row of text.
+            expect(lines.findIndex(line => line.includes(START))).toBe(top)
+            expect(lines.slice(0, top)).toEqual(Array(top).fill(''))
+            // The stamp on that row and no other, at the left edge.
+            expect(lines[top]?.startsWith(stamp)).toBe(true)
+            expect(lines.filter(line => line.includes(stamp))).toHaveLength(1)
+            // The body a cell after the stamp column, mirrored margin and all.
+            expect(bodyColumn(lines)).toBe(Number(widthOf(tree)) + 1)
+            expect(columnOf(tree)?.props?.marginTop ?? 0).toBe(top)
+          }
+        }
+      },
+    )
+  }
+}
+
+for (const [name, drawing, top] of [DRAWINGS[0], DRAWINGS[4]]) {
+  test(
+    `right: the stamp is on the first row of text when the engine draws ${name}`,
+    { options: { placement: 'right' } },
+    async ($, on) => {
+      await ready($, on, drawing)
+
+      for (const columns of [80, 120]) {
+        for (const { lines, tree } of await drawAll($, columns, 'terminal')) {
+          const stamp = stampText(tree)
+          expect(overflow(lines, columns)).toEqual([])
+          expect(lines.findIndex(line => line.includes(START))).toBe(top)
+          expect(lines[top]?.endsWith(stamp)).toBe(true)
+          expect(lines.filter(line => line.includes(stamp))).toHaveLength(1)
+          expect(columnOf(tree)?.props?.marginTop ?? 0).toBe(top)
+        }
+      }
+    },
+  )
+}
+
+test('above puts the stamp over a drawing that starts with a blank row, whole', async ($, on) => {
+  await ready($, on, { marginTop: 1 })
+
+  for (const { lines, tree } of await drawAll($, 50, 'terminal')) {
+    expect(overflow(lines, 50)).toEqual([])
+    expect(child(tree, 0)?.props).toMatchObject({ wrap: 'truncate-end' })
+    expect(lines.findIndex(line => line.includes(START))).toBe(2)
+  }
+})
+
+// Rows the engine draws behind its opaque node, `{ type: 'engine', ref }`: a hook
+// cannot read their margin, so the stamp skips the rows measured for the component
+// in Claude Code 2.1.310, in ROWS order.
+const MEASURED = [1, 1, 1, 0, 1, 0, 1]
+
+test('behind the engine node the stamp skips the rows measured for each component, on the terminal', async ($, on) => {
+  await ready($, on, 'engine')
+
+  for (const columns of [80, 120]) {
+    const rows = await drawAll($, columns, 'terminal')
+
+    expect(rows.map(row => columnOf(row.tree)?.props?.marginTop ?? 0)).toEqual(
+      MEASURED,
+    )
+    for (const { lines } of rows) expect(overflow(lines, columns)).toEqual([])
+  }
+})
+
+test('behind the engine node the stamp is not moved on the desktop, which was not measured', async ($, on) => {
+  await ready($, on, 'engine')
+
+  const rows = await drawAll($, 120, 'desktop')
+
+  expect(rows.map(row => columnOf(row.tree)?.props?.marginTop)).toEqual(
+    rows.map(() => undefined),
+  )
+})
+
+test('the layout check puts a top margin and padding above a Box', () => {
+  const tree = {
+    type: 'Box',
+    props: { flexDirection: 'row' },
+    children: [
+      { type: 'Box', props: { width: 5, marginTop: 1 }, children: ['x'] },
+      {
+        type: 'Box',
+        props: { flexGrow: 1, paddingTop: 2 },
+        children: ['body'],
+      },
+    ],
+  } satisfies Tree
+
+  expect(layout(tree, 20)).toEqual(['', 'x', '     body'])
+})
 
 test('the layout check finds a line that runs past the edge', () => {
   const tree = {

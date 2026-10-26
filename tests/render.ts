@@ -7,6 +7,7 @@ import { cellWidth, truncate } from '../hooks/format'
 // - Box: a column stacks its children; a row (the default) sets them side by
 //   side, a child with a `width` at that width, one with `flexGrow` taking what
 //   is left, any other at its natural width. `marginLeft` and `marginRight` count.
+//   `marginTop` and `paddingTop` push a Box's own lines down, as blank rows.
 // - Text wraps at spaces, or is cut with `…` for `wrap: 'truncate-end'`.
 //
 // Style (color, dim) is not drawn: assert on props for that. A line wider than
@@ -64,6 +65,16 @@ const padEnd = (text: string, width: number) =>
 
 /** The lines a tree takes in `width` cells. */
 export function layout(node: Tree, width: number): string[] {
+  const lines = place(node, width)
+  if (typeof node === 'string') return lines
+
+  // The rows above the first line: a Box's top margin and top padding.
+  const top = number(node, 'marginTop') + number(node, 'paddingTop')
+
+  return [...Array.from({ length: top }, () => ''), ...lines]
+}
+
+function place(node: Tree, width: number): string[] {
   if (typeof node === 'string') return wrap(node, width)
 
   if (node.type === 'Text') {
