@@ -22,27 +22,27 @@ Show when each row happened on every transcript row: prompts, replies, tool call
 - **Biggest open point.** It is unverified that `requestId` equals the `session.append` uuid. Ship a debug log that pairs them for the live check. If they differ, match by order and text.
 
 ## Layout
-- **Placement.** With 70 or more columns, the stamp goes in a right column:
-  - a Row Box, with the body set to `flexGrow 1` and `flexShrink 1`;
-  - the stamp at a fixed width, capped at min(22, 25% of the columns);
+- **Placement.** With 70 or more columns, the stamp goes in a left column, before the body:
+  - a Row Box: the stamp first, at a fixed width, `flexShrink 0` and `marginRight 1`; the body after it, `flexGrow 1` and `flexShrink 1`, so wrapped body lines stay aligned after the stamp column (a hanging indent);
+  - the stamp width is fixed from the format, so every row's body starts at the same column; capped at min(22, 25% of the columns);
   - the date drops first when space runs short, then the age.
 
-  Below 70 columns, and on mobile, the stamp is one dim line above the row.
+  Below 70 columns, and on mobile, the stamp is one dim line above the row. `right` puts the same column after the body (`marginLeft 1`).
 - **Overflow.** Nothing may overflow; use `truncate-end`. Never use absolute positioning, and never rewrite `props.text`.
 
-## Settings (userConfig, titles `Title (default: X)`)
+## Settings (userConfig, titles `Title (default: X)`; text defaults quoted)
 | key | type | options | default | title |
 |---|---|---|---|---|
 | style | choice | time, time+seconds, 12h, 12h+seconds, date+time, iso, custom | time | Time style (default: time) |
-| pattern | text | YYYY MM MMM DD ddd HH H hh h mm ss a | HH:mm | Custom pattern (default: HH:mm) |
+| pattern | text | YYYY MM MMM DD ddd HH H hh h mm ss a | HH:mm | Custom pattern (default: "HH:mm") |
 | showDate | choice | other-day, 12h, 24h, 7d, always, never | other-day | Show date (default: other-day) |
-| show | choice | both, time, age | both | Show (default: both) |
+| show | choice | time, age, both | time | Show (default: time) |
 | rows | choice | all, conversation, prompts, no-tools | all | Stamped rows (default: all) |
-| placement | choice | auto, right, above | auto | Placement (default: auto) |
+| placement | choice | auto, left, right, above | auto | Placement (default: auto) |
 | color | choice | dim, subtle, time-of-day, fixed, off | dim | Colour (default: dim) |
-| fixedColor | text | ThemeKey, named colour, #rrggbb | inactive | Fixed colour (default: inactive) |
-| dayBands | text | 2 or 4 start hours | 6,12,18,22 | Day bands (default: 6,12,18,22) |
-| band | choice | auto, on, off | auto | Last-activity band (default: auto) |
+| fixedColor | text | ThemeKey, named colour, #rrggbb | inactive | Fixed colour (default: "inactive") |
+| dayBands | text | 2 or 4 start hours | 6,12,18,22 | Day bands (default: "6,12,18,22") |
+| band | choice | off, auto, on | off | Last-activity band (default: off) |
 
 - **Time-of-day colours** are theme keys, so they follow light and dark themes. Each is drawn with `dimColor`.
   - Four bands: morning `warning`, afternoon `success`, evening `claude`, night `merged`.

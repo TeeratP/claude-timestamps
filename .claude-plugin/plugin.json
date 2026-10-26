@@ -1,0 +1,127 @@
+{
+  "name": "timestamps",
+  "version": "0.1.0",
+  "description": "A clock time and a relative age on every transcript row: prompts, replies, tool calls and results.",
+  "author": {
+    "name": "TeeratP"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "style": {
+      "type": "string",
+      "title": "Time style (default: time)",
+      "description": "How the clock reads. time: 24-hour, e.g. 09:12. time+seconds: 09:12:05. 12h: 9:12 AM. 12h+seconds: 9:12:05 AM. date+time: Oct 26 09:12. iso: 2026-10-26T09:12:05. custom: the pattern in Custom pattern.",
+      "options": [
+        "time",
+        "time+seconds",
+        "12h",
+        "12h+seconds",
+        "date+time",
+        "iso",
+        "custom"
+      ],
+      "required": false,
+      "default": "time"
+    },
+    "pattern": {
+      "type": "string",
+      "title": "Custom pattern (default: \"HH:mm\")",
+      "description": "Used when Time style is custom. Tokens: YYYY (2026), MM (10), MMM (Oct), DD (26), ddd (Mon), HH (09), H (9), hh (12-hour, 09), h (12-hour, 9), mm (12), ss (05), a (AM or PM). Anything else is kept as typed, e.g. \"ddd HH:mm\".",
+      "required": false,
+      "default": "HH:mm"
+    },
+    "showDate": {
+      "type": "string",
+      "title": "Show date (default: other-day)",
+      "description": "When the time, time+seconds, 12h and 12h+seconds styles add the date, e.g. Oct 26 09:12. other-day: on a row from another day. 12h: on a row older than 12 hours. 24h: older than 24 hours. 7d: older than 7 days. always: on every row. never: no date. The date is the first thing to drop when the column is narrow.",
+      "options": [
+        "other-day",
+        "12h",
+        "24h",
+        "7d",
+        "always",
+        "never"
+      ],
+      "required": false,
+      "default": "other-day"
+    },
+    "show": {
+      "type": "string",
+      "title": "Show (default: time)",
+      "description": "What the stamp shows. time: the clock time only. age: how long ago, e.g. 5m ago. both: 09:12 · 5m ago. On the terminal's main screen rows show the clock only, since printed rows cannot update.",
+      "options": [
+        "time",
+        "age",
+        "both"
+      ],
+      "required": false,
+      "default": "time"
+    },
+    "rows": {
+      "type": "string",
+      "title": "Stamped rows (default: all)",
+      "description": "Which rows get a stamp. all: prompts, replies, tool calls, tool results, tool groups and command output. conversation: prompts and replies. prompts: your prompts only. no-tools: everything except tool calls, tool results and tool groups.",
+      "options": [
+        "all",
+        "conversation",
+        "prompts",
+        "no-tools"
+      ],
+      "required": false,
+      "default": "all"
+    },
+    "placement": {
+      "type": "string",
+      "title": "Placement (default: auto)",
+      "description": "Where the stamp goes. auto: left from 70 columns, above the row below that and on mobile. left: a fixed-width column before the row, so every row's text starts at the same column. right: the same column after the row. above: one line above the row.",
+      "options": [
+        "auto",
+        "left",
+        "right",
+        "above"
+      ],
+      "required": false,
+      "default": "auto"
+    },
+    "color": {
+      "type": "string",
+      "title": "Colour (default: dim)",
+      "description": "How the stamp is coloured. dim: the theme's dim text. subtle: the theme's subtle colour. time-of-day: by the hour of the row, in the colours of Day bands, dimmed. fixed: the Fixed colour. off: plain text.",
+      "options": [
+        "dim",
+        "subtle",
+        "time-of-day",
+        "fixed",
+        "off"
+      ],
+      "required": false,
+      "default": "dim"
+    },
+    "fixedColor": {
+      "type": "string",
+      "title": "Fixed colour (default: \"inactive\")",
+      "description": "Used when Colour is fixed. A theme key (inactive, subtle, claude, success, warning, ...), a colour name such as cyan, or #rrggbb.",
+      "required": false,
+      "default": "inactive"
+    },
+    "dayBands": {
+      "type": "string",
+      "title": "Day bands (default: \"6,12,18,22\")",
+      "description": "Used when Colour is time-of-day. Four start hours, rising (0-23): morning (warning), afternoon (success), evening (claude), night (merged). Or two: day (warning) and night (merged), e.g. 7,19.",
+      "required": false,
+      "default": "6,12,18,22"
+    },
+    "band": {
+      "type": "string",
+      "title": "Last-activity band (default: off)",
+      "description": "A line above the prompt with the time of your last prompt and Claude's last reply, e.g. you 09:12 · 5m ago   claude 09:14 · 3m ago. It follows Show. off: never. auto: on the terminal's main screen only, where printed rows cannot tick. on: always.",
+      "options": [
+        "off",
+        "auto",
+        "on"
+      ],
+      "required": false,
+      "default": "off"
+    }
+  }
+}

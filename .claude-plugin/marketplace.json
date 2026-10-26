@@ -1,0 +1,12 @@
+{
+  "name": "claude-timestamps",
+  "description": "Claude Code mods by TeeratP: timestamps on every transcript row.",
+  "owner": { "name": "TeeratP" },
+  "plugins": [
+    {
+      "name": "timestamps",
+      "source": "./",
+      "description": "A clock time and a relative age on every transcript row: prompts, replies, tool calls and results."
+    }
+  ]
+}
